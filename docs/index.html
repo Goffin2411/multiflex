@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MultiFlix Pro - La Totale</title>
+    <style>
+        :root { --red: #e50914; --black: #0a0a0a; }
+        body { background-color: var(--black); color: #fff; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; margin: 0; }
+
+        header { 
+            padding: 10px 4%; background: #000; 
+            position: fixed; width: 100%; z-index: 1000; display: flex; align-items: center; box-sizing: border-box;
+            border-bottom: 1px solid #222; gap: 15px;
+        }
+        .menu-btn { font-size: 1.8rem; cursor: pointer; }
+        .logo { color: var(--red); font-weight: bold; font-size: 1.6rem; cursor: pointer; text-decoration: none; }
+        .search-bar { flex-grow: 1; background: #222; border: 1px solid #444; color: white; padding: 8px 15px; border-radius: 4px; outline: none; }
+
+        .sidenav {
+            height: 100%; width: 0; position: fixed; z-index: 2000; top: 0; left: 0;
+            background-color: #050505; overflow-x: hidden; transition: 0.3s; padding-top: 60px;
+        }
+        .sidenav a { padding: 12px 32px; text-decoration: none; font-size: 1.1rem; color: #b3b3b3; display: block; cursor: pointer; }
+        .sidenav a:hover { color: #fff; background: var(--red); }
+        .sidenav .closebtn { position: absolute; top: 10px; right: 25px; font-size: 2.5rem; color: white; cursor: pointer; }
+
+        main { padding: 90px 4% 50px; min-height: 85vh; }
+        .page-title { font-size: 1.8rem; margin-bottom: 25px; color: #fff; }
+
+        .movie-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px; }
+        .card { 
+            position: relative; height: 260px; background: #1a1a1a; 
+            border-radius: 6px; cursor: pointer; transition: 0.3s; 
+            overflow: hidden; border: 1px solid #333;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .card:hover { transform: scale(1.05); border-color: #fff; z-index: 5; }
+        .card img { width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0; z-index: 1; }
+        .card-fallback-title { position: relative; z-index: 0; padding: 20px; text-align: center; font-size: 1rem; font-weight: bold; text-transform: uppercase; color: #666; }
+        .card-overlay { position: absolute; bottom: 0; width: 100%; background: linear-gradient(transparent, rgba(0,0,0,0.9)); padding: 15px 10px; box-sizing: border-box; z-index: 2; font-weight: bold; font-size: 0.85rem; }
+
+        #modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 3000; align-items: center; justify-content: center; }
+        .modal-content { background: #181818; width: 95%; max-width: 600px; border-radius: 12px; overflow: hidden; position: relative; border: 1px solid #333; }
+        .modal-summary-box { background: linear-gradient(145deg, #222, #000); padding: 40px 30px; min-height: 180px; display: flex; align-items: center; justify-content: center; text-align: center; border-bottom: 1px solid #333; }
+        .summary-text { font-size: 1.05rem; line-height: 1.6; color: #ddd; font-style: italic; }
+        .modal-body { padding: 25px; background: #181818; }
+        .btn-play { background: #fff; color: #000; border: none; padding: 12px 25px; font-weight: bold; border-radius: 4px; text-decoration: none; display: inline-block; cursor: pointer; }
+        .btn-fav { background: transparent; color: white; border: 1px solid #555; padding: 12px; border-radius: 4px; margin-left: 10px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div id="mySidenav" class="sidenav">
+    <span class="closebtn" onclick="closeNav()">×</span>
+    <a onclick="showPage('accueil')">🏠 Accueil</a>
+    <a onclick="showPage('ma-liste')">⭐ Ma Liste</a>
+    <hr style="border:0; border-top:1px solid #222; margin: 10px 30px;">
+    <a onclick="showPage('batman')">🦇 Collection Batman</a>
+    <a onclick="showPage('action')">🏎️ Fast & Furious</a>
+    <a onclick="showPage('enfants')">🎈 Disney & Enfants</a>
+</div>
+
+<header>
+    <div class="menu-btn" onclick="openNav()">☰</div>
+    <div class="logo" onclick="showPage('accueil')">MULTIFLIX</div>
+    <input type="text" class="search-bar" id="searchInp" placeholder="Rechercher un film..." oninput="doSearch()">
+</header>
+
+<main id="content-area"></main>
+
+<div id="modal">
+    <div class="modal-content">
+        <span style="position:absolute; top:10px; right:20px; font-size:2rem; cursor:pointer; z-index:10;" onclick="closeModal()">×</span>
+        <div class="modal-summary-box"><p id="m-summary" class="summary-text"></p></div>
+        <div class="modal-body">
+            <h2 id="m-title" style="margin:0 0 15px 0; color:var(--red);"></h2>
+            <div>
+                <a id="m-link" href="#" target="_blank" class="btn-play">▶ Lecture Directe</a>
+                <button id="m-fav-btn" class="btn-fav"></button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let favorites = JSON.parse(localStorage.getItem('flix_final_v1')) || [];
+
+    const movies = [
+        // --- COLLECTION BATMAN ---
+        { id: 'bat1', cat: 'batman', title: 'Batman (1989)', desc: 'Le premier grand film sur le Chevalier Noir. Michael Keaton affronte un Joker légendaire dans une Gotham sombre et gothique.', img: 'https://image.tmdb.org/t/p/w500/8tSOT7O9xyAnSTpS8U9S9qS8U9.jpg', link: 'https://cinepulse.lol/play/2uwc97tswXkjArcOglnAFsDUONtd' },
+        { id: 'bat2', cat: 'batman', title: 'Batman : Le Défi', desc: 'Batman doit faire face au terrifiant Pingouin et à la mystérieuse Catwoman qui hantent les rues de Gotham pendant Noël.', img: 'https://image.tmdb.org/t/p/w500/j99S9qS8U9S9qS8U9S9qS8U9.jpg', link: 'https://cinepulse.lol/play/2uwcM2V6pu0cNVHpRfkf9FE7gHto' },
+        { id: 'bat3', cat: 'batman', title: 'Batman Forever', desc: 'Batman affronte Double-Face et l\'Homme-Mystère avec l\'aide de son nouvel allié, Robin.', img: 'https://image.tmdb.org/t/p/w500/8X08n93O93f8l35Bqof703W6tM6m.jpg', link: 'https://cinepulse.lol/play/2uwc97tURFwJYNiJqBqtYMHBW8tj' },
+        { id: 'bat4', cat: 'batman', title: 'Batman Begins', desc: 'Les origines du Chevalier Noir. Bruce Wayne s\'entraîne auprès de la Ligue des Ombres avant de revenir sauver Gotham.', img: 'https://image.tmdb.org/t/p/w500/8G6mIia6XNid68f.jpg', link: 'https://cinepulse.lol/play/2uwcTO8T6wfS4vAEE2T8wMp1m0tg' },
+        { id: 'bat5', cat: 'batman', title: 'The Dark Knight', desc: 'Batman fait face à son plus grand défi : le Joker, un agent du chaos qui veut prouver que tout le monde peut devenir fou.', img: 'https://image.tmdb.org/t/p/w500/hkDcmz0rS1Y97Y0S6S8S9Q9S.jpg', link: 'https://cinepulse.lol/play/2uwcwn7B4JaFKwHTiryEbAgEcGto' },
+        { id: 'bat6', cat: 'batman', title: 'The Dark Knight Rises', desc: 'Huit ans après, le colosse Bane menace de détruire Gotham. Bruce Wayne doit sortir de sa retraite pour un ultime combat.', img: 'https://image.tmdb.org/t/p/w500/vY08XnO93f8l35Bqof703W6tM6m.jpg', link: 'http://cinepulse.lol/play/GunSc2IVTICnxWnhmZMxEIbekXGAwm' },
+        { id: 'bat7', cat: 'batman', title: 'Batman vs Superman', desc: 'Craignant les pouvoirs d\'un dieu, le justicier de Gotham défie le sauveur de Metropolis dans un duel titanesque.', img: 'https://image.tmdb.org/t/p/w500/fiVW0Bn3f78pS9YvC4pMc99F7uU.jpg', link: 'https://cinepulse.lol/play/2PrtqBEEBCWcWiLGDdbGuGfszHKwKfxr' },
+
+        // --- SAGA FAST & FURIOUS ---
+        { id: 'ff1', cat: 'action', title: 'Fast & Furious 1', desc: 'Brian O\'Conner infiltre le monde des courses de rue à L.A. Sa loyauté est mise à l\'épreuve face à Dominic Toretto.', img: 'https://image.tmdb.org/t/p/w500/vY08XnO93f8l35Bqof703W6tM6m.jpg', link: 'https://cinepulse.lol/play/ai11Ri9qQAMNCmQBQ0yiZdaRN79vd' },
+        { id: 'ff2', cat: 'action', title: '2 Fast 2 Furious', desc: 'Brian O\'Conner fait équipe avec Roman Pearce pour faire tomber un baron de la drogue à Miami.', img: 'https://image.tmdb.org/t/p/w500/7I08n5f89Oof5MIA8pM9H1f6Nia.jpg', link: 'https://cinepulse.lol/play/2uwc1BoOmWVrCdBkvsoi6VfRTutt' },
+        { id: 'ff3', cat: 'action', title: 'F&F : Tokyo Drift', desc: 'Sean Boswell découvre le monde du drift à Tokyo et doit affronter le Drift King lié à la Yakuza.', img: 'https://image.tmdb.org/t/p/w500/6v99T80O89Oof5MIA8pM9H1f6Nia.jpg', link: 'https://cinepulse.lol/play/ai11RpHjsBsiMAnCdiGebj5gr1Uv9' },
+        { id: 'ff4', cat: 'action', title: 'Fast & Furious 4', desc: 'Dom et Brian s\'unissent contre un trafiquant de drogue qui a infiltré les rues de Los Angeles.', img: 'https://image.tmdb.org/t/p/w500/8X08n93O93f8l35Bqof703W6tM6m.jpg', link: 'https://cinepulse.lol/play/GunYzrTOgQQ8vjlBYOHirhwRM4yUw4' },
+        { id: 'ff5', cat: 'action', title: 'Fast Five', desc: 'Dom et son équipe tentent un casse audacieux à Rio tout en étant traqués par l\'agent Luke Hobbs.', img: 'https://image.tmdb.org/t/p/w500/1X08n5f89Oof5MIA8pM9H1f6Nia.jpg', link: 'http://cinepulse.lol/play/GunPZ37NSKDKI0EjT9cNR5vqbarUwi' },
+        { id: 'ff6', cat: 'action', title: 'Fast & Furious 6', desc: 'L\'équipe de Dom aide Hobbs à arrêter des mercenaires pilotés par Owen Shaw en échange d\'une amnistie.', img: 'https://image.tmdb.org/t/p/w500/2X08n5f89Oof5MIA8pM9H1f6Nia.jpg', link: 'https://cinepulse.lol/play/GuohRtxhZqy6IPm0dopWux33lfCVwt' },
+        { id: 'ff7', cat: 'action', title: 'Fast & Furious 7', desc: 'Deckard Shaw cherche vengeance. L\'équipe doit protéger un programme sophistiqué dans une aventure mondiale.', img: 'https://image.tmdb.org/t/p/w500/3X08n5f89Oof5MIA8pM9H1f6Nia.jpg', link: 'https://cinepulse.lol/play/2PrsZZWHuYbjzf4fHT8m6Ohz4Y1HEZxv' },
+        { id: 'ff8', cat: 'action', title: 'Fast & Furious 8', desc: 'Une mystérieuse femme entraîne Dom dans la cyber-criminalité, forçant sa famille à s\'unir contre lui.', img: 'https://image.tmdb.org/t/p/w500/4X08n5f89Oof5MIA8pM9H1f6Nia.jpg', link: 'https://cinepulse.lol/play/2PrthNeHuakE5TZZI4LvCW8C9Ow3TQxu' },
+        { id: 'ff9', cat: 'action', title: 'Fast & Furious 9', desc: 'Dom affronte son passé quand son frère Jakob, un assassin talentueux, réapparaît pour un complot mondial.', img: 'https://image.tmdb.org/t/p/w500/5X08n5f89Oof5MIA8pM9H1f6Nia.jpg', link: 'https://cinepulse.lol/play/2Prti2dv17T7Vdbr9zHRH1tVRnWPTVxu' },
+        { id: 'ff10', cat: 'action', title: 'Fast X', desc: 'Dante Reyes cherche à détruire tout ce que Dom aime dans une menace qui divise la famille.', img: 'https://image.tmdb.org/t/p/w500/fiVW0Bn3f78pS9YvC4pMc99F7uU.jpg', link: 'https://cinepulse.lol/play/2Prti2duTw41b8swLnBcSivIIpFdDBy4' },
+        { id: 'ffhs', cat: 'action', title: 'F&F : Hobbs & Shaw', desc: 'Luke Hobbs et Deckard Shaw forment une alliance improbable pour arrêter un terroriste génétiquement amélioré.', img: 'https://image.tmdb.org/t/p/w500/8X08n93O93f8l35Bqof703W6tM6m.jpg', link: 'https://cinepulse.lol/play/2Prti2e1jpXkkuPds1g5cLtLXu1O6wy1' },
+
+        // --- DISNEY & ENFANTS ---
+        { id: 'v1', cat: 'enfants', title: 'Vaiana 1', desc: 'Vaiana, une jeune fille téméraire, se lance dans un voyage audacieux pour sauver son peuple avec l\'aide de Maui.', img: 'https://image.tmdb.org/t/p/w500/m8F9780O989Oof6mIia6XNid68f.jpg', link: 'https://cinepulse.lol/play/2Prtqv8YPJZLpL0tgXGJZk9o7BdCF2xy' },
+        { id: 'v2', cat: 'enfants', title: 'Vaiana 2', desc: 'Après avoir reçu un appel inattendu de ses ancêtres, Vaiana voyage vers les mers lointaines de l\'Océanie.', img: 'https://image.tmdb.org/t/p/w500/sh79SAnSTpS8U9S9qS8U9.jpg', link: 'https://cinepulse.lol/play/bGppKyKytFVZwWUzGHhMaEwreLjrPjPzl' },
+        { id: 'z1', cat: 'enfants', title: 'Zootopie 1', desc: 'Une lapine policière et un renard escroc font équipe pour résoudre une mystérieuse affaire dans la ville animale.', img: 'https://image.tmdb.org/t/p/w500/fScmz0rS1Y97Y0S6S8S9Q9S8U9.jpg', link: 'https://cinepulse.lol/play/2PrtqxmZ8Lz7u9CKKFoj1W8OTRsb3Cxs' },
+        { id: 'z2', cat: 'enfants', title: 'Zootopie 2', desc: 'Judy et Nick sont de retour pour une nouvelle mission périlleuse dans les quartiers de Zootopie.', img: 'https://image.tmdb.org/t/p/w500/8tSOT7O9xyAnSTpS8U9S9qS8U9.jpg', link: 'https://cinepulse.lol/play/bGppKhthIwiX1oCwQ7MKEvfeF9dUUcoz9' }
+    ];
+
+    function openNav() { document.getElementById("mySidenav").style.width = "280px"; }
+    function closeNav() { document.getElementById("mySidenav").style.width = "0"; }
+    
+    function showPage(pageId) {
+        closeNav();
+        const container = document.getElementById('content-area');
+        let list = pageId === 'accueil' ? movies : pageId === 'ma-liste' ? favorites : movies.filter(m => m.cat === pageId);
+        let titleMap = { 'accueil': 'Tous les films', 'ma-liste': 'Ma Liste', 'batman': 'Collection Batman', 'action': 'Fast & Furious Saga', 'enfants': 'Disney & Enfants' };
+        
+        let html = `<h1 class="page-title">${titleMap[pageId] || 'Catégorie'}</h1><div class="movie-grid">`;
+        list.forEach(m => {
+            html += `<div class="card" onclick="openModal('${m.id}')"><div class="card-fallback-title">${m.title}</div><img src="${m.img}" onerror="this.style.display='none'"><div class="card-overlay">${m.title}</div></div>`;
+        });
+        html += `</div>`;
+        container.innerHTML = html;
+        window.scrollTo(0,0);
+    }
+
+    function doSearch() {
+        const val = document.getElementById('searchInp').value.toLowerCase();
+        const container = document.getElementById('content-area');
+        const filtered = movies.filter(m => m.title.toLowerCase().includes(val));
+        let html = `<h1 class="page-title">Résultats pour "${val}"</h1><div class="movie-grid">`;
+        filtered.forEach(m => {
+            html += `<div class="card" onclick="openModal('${m.id}')"><div class="card-fallback-title">${m.title}</div><img src="${m.img}" onerror="this.style.display='none'"><div class="card-overlay">${m.title}</div></div>`;
+        });
+        html += `</div>`;
+        container.innerHTML = html;
+    }
+
+    function openModal(id) {
+        const m = movies.find(x => x.id === id) || favorites.find(x => x.id === id);
+        if(!m) return;
+        document.getElementById('m-title').innerText = m.title;
+        document.getElementById('m-summary').innerText = `"${m.desc}"`;
+        document.getElementById('m-link').href = m.link;
+        const isFav = favorites.some(f => f.id === m.id);
+        const btn = document.getElementById('m-fav-btn');
+        btn.innerText = isFav ? '✓ Dans ma liste' : '+ Ma liste';
+        btn.onclick = () => {
+            const idx = favorites.findIndex(f => f.id === m.id);
+            if(idx > -1) favorites.splice(idx, 1); else favorites.push(m);
+            localStorage.setItem('flix_final_v1', JSON.stringify(favorites));
+            openModal(m.id);
+        };
+        document.getElementById('modal').style.display = 'flex';
+    }
+    function closeModal() { document.getElementById('modal').style.display = 'none'; }
+    showPage('accueil');
+</script>
+</body>
+</html>
